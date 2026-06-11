@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深圳一日游 · HCI-RecSys group</title>
+<style>
+  :root {
+    --bg: #F7F4EF; --card: #FFFFFF; --gold: #B8956A; --gold-light: #E8D5B7;
+    --ink: #1A1A1A; --ink-mid: #555; --ink-light: #999; --border: #E0D8CE;
+    --red: #C0392B; --green: #2E7D52; --blue: #34597D; --rail: #8E5A8E;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+
+  header { background: var(--ink); color: #fff; padding: 16px 18px 12px; position: sticky; top: 0; z-index: 100; }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .header-title { font-size: 13px; letter-spacing: 0.12em; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .header-date { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .header-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+  .depart-control { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .depart-label { font-size: 10px; color: var(--gold); letter-spacing: 0.08em; }
+  .time-picker { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 18px; font-weight: 700; padding: 4px 6px; text-align: center; width: 120px; min-width: 120px; cursor: pointer; }
+  .time-picker:focus { outline: none; border-color: var(--gold); }
+
+  /* date selector */
+  .date-row { display: flex; gap: 6px; margin-top: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .date-row::-webkit-scrollbar { display: none; }
+  .date-btn { flex: 0 0 auto; padding: 6px 12px; border-radius: 8px; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); text-align: center; cursor: pointer; transition: all 0.15s; min-width: 58px; }
+  .date-btn.active { border-color: var(--gold); background: var(--gold); color: var(--ink); }
+  .date-btn-day { font-size: 11px; opacity: 0.8; }
+  .date-btn-date { font-size: 13px; font-weight: 700; margin-top: 1px; }
+
+  .arrival-toggle { display: flex; gap: 6px; margin-top: 12px; }
+  .arrival-btn { flex: 1; padding: 8px; border-radius: 7px; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); text-align: center; transition: all 0.15s; }
+  .arrival-btn.active { border-color: var(--gold); background: var(--gold); color: var(--ink); }
+  .arrival-btn-title { font-size: 13px; font-weight: 700; }
+  .arrival-btn-sub { font-size: 10px; opacity: 0.7; margin-top: 1px; }
+
+  main { padding: 16px; max-width: 520px; margin: 0 auto; }
+  .timeline { position: relative; }
+  .tl-item { display: flex; gap: 14px; margin-bottom: 8px; }
+  .tl-spine { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: 12px; }
+  .tl-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); border: 2px solid var(--bg); flex-shrink: 0; margin-top: 4px; z-index: 1; }
+  .tl-line { width: 1px; flex: 1; background: var(--border); min-height: 16px; margin-top: 2px; }
+  .tl-time { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--gold); font-weight: 700; line-height: 1; margin-top: 3px; width: 40px; text-align: right; flex-shrink: 0; }
+  .tl-card { flex: 1; background: var(--card); border-radius: 10px; padding: 12px 14px; border: 1px solid var(--border); }
+  .tl-card.highlighted { border-color: var(--gold); background: #FFFDF9; }
+  .tl-card-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; font-weight: 600; }
+  .tl-card-title { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+  .tl-card-sub { font-size: 12px; color: var(--ink-mid); margin-top: 4px; line-height: 1.5; }
+  .tl-card-duration { font-size: 11px; color: var(--ink-light); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+  .duration-pill { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 10px; color: var(--ink-mid); }
+
+  .choice-group { margin-top: 10px; }
+  .choice-label { font-size: 10px; color: var(--ink-light); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .choice-options { display: flex; flex-direction: column; gap: 6px; }
+  .choice-btn { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; border: 1.5px solid var(--border); background: #fff; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s; width: 100%; }
+  .choice-btn.selected { border-color: var(--gold); background: #FFFBF4; }
+  .choice-btn .radio { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .choice-btn.selected .radio { border-color: var(--gold); background: var(--gold); }
+  .choice-btn.selected .radio::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+  .choice-main { flex: 1; font-size: 13px; font-weight: 500; color: var(--ink); }
+  .choice-meta { font-size: 11px; color: var(--ink-light); margin-top: 1px; }
+  .choice-transit { font-size: 11px; color: var(--ink-mid); text-align: right; white-space: nowrap; }
+
+  .museum-card { background: var(--ink); color: #fff; border-radius: 10px; padding: 14px 16px; }
+  .museum-name { font-size: 16px; font-weight: 700; letter-spacing: 0.03em; }
+  .museum-en { font-size: 11px; color: var(--gold); letter-spacing: 0.08em; margin-bottom: 8px; margin-top: 2px; }
+  .museum-exhibits { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+  .exhibit-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); gap: 8px; }
+  .exhibit-row:last-child { border-bottom: none; }
+  .exhibit-name { color: rgba(255,255,255,0.9); flex: 1; }
+  .exhibit-type { font-size: 10px; color: var(--gold); flex-shrink: 0; }
+  .exhibit-dates { font-size: 10px; color: rgba(255,255,255,0.4); flex-shrink: 0; text-align: right; }
+  .ticket-note { margin-top: 10px; padding: 8px 10px; background: rgba(184,149,106,0.15); border-radius: 6px; font-size: 11px; color: var(--gold-light); display: flex; align-items: center; gap: 6px; }
+
+  .view-control { margin-top: 12px; padding: 10px 12px; background: rgba(255,255,255,0.06); border-radius: 8px; }
+  .view-control-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .view-control-label { font-size: 11px; color: rgba(255,255,255,0.6); letter-spacing: 0.06em; }
+  .view-control-value { font-size: 14px; font-weight: 700; color: var(--gold); }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--gold); cursor: pointer; border: 2px solid var(--ink); }
+  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--gold); cursor: pointer; border: 2px solid var(--ink); }
+  .view-end-note { font-size: 11px; margin-top: 8px; }
+
+  .plan-toggle { display: flex; gap: 6px; margin-bottom: 8px; }
+  .plan-toggle-btn { flex: 1; padding: 9px 4px; border-radius: 8px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; text-align: center; transition: all 0.15s; }
+  .plan-toggle-btn.active { border-color: var(--gold); background: var(--ink); color: #fff; }
+  .plan-toggle-title { font-size: 12px; font-weight: 700; }
+  .plan-toggle-sub { font-size: 9px; color: var(--ink-light); margin-top: 2px; }
+  .plan-toggle-btn.active .plan-toggle-sub { color: rgba(255,255,255,0.6); }
+  .auto-hint { font-size: 11px; color: var(--ink-mid); padding: 6px 0; line-height: 1.5; }
+  .auto-hint b { color: var(--ink); }
+
+  .ret-seg { display: flex; gap: 0; margin-top: 10px; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .ret-seg-btn { flex: 1; padding: 8px 4px; text-align: center; cursor: pointer; background: #fff; transition: all 0.15s; border-right: 1px solid var(--border); }
+  .ret-seg-btn:last-child { border-right: none; }
+  .ret-seg-btn.active { background: var(--ink); color: #fff; }
+  .ret-seg-title { font-size: 12px; font-weight: 700; }
+  .ret-seg-sub { font-size: 9px; opacity: 0.65; margin-top: 1px; }
+
+  .extras { margin-top: 10px; }
+  .extras-section { margin-bottom: 10px; }
+  .extras-title { font-size: 11px; color: var(--blue); font-weight: 600; margin-bottom: 5px; letter-spacing: 0.04em; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { font-size: 11px; padding: 3px 8px; border-radius: 5px; background: #fff; border: 1px solid var(--border); color: var(--ink-mid); }
+  .tag.snack { border-color: #E8D5B7; background: #FFFBF4; }
+  .tag.shop { border-color: #C4D4E2; background: #F4F8FB; }
+
+  .train-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .train-btn { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; cursor: pointer; transition: all 0.15s; }
+  .train-btn.selected { border-color: var(--rail); background: #FAF4FA; }
+  .train-btn.disabled { opacity: 0.45; }
+  .train-time { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); width: 48px; flex-shrink: 0; }
+  .train-mid { flex: 1; min-width: 0; }
+  .train-no { font-size: 12px; color: var(--ink-mid); font-weight: 600; }
+  .train-arrive { font-size: 11px; color: var(--ink-light); margin-top: 1px; }
+  .train-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .train-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: var(--rail); color: #fff; letter-spacing: 0.04em; }
+  .train-verify { font-size: 10px; color: var(--rail); text-decoration: none; border: 1px solid #D2B4D2; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+  .train-verify:active { background: #F0E0F0; }
+
+  .crossing-card { background: #EEF7F2; border: 1px solid #A8D5BB; border-radius: 10px; padding: 12px 14px; }
+  .crossing-card.rail { background: #FAF4FA; border-color: #D2B4D2; }
+  .crossing-title { font-size: 14px; font-weight: 600; color: var(--green); margin-bottom: 4px; }
+  .crossing-card.rail .crossing-title { color: var(--rail); }
+  .crossing-sub { font-size: 12px; color: #3a6b52; }
+  .crossing-card.rail .crossing-sub { color: #6b3a6b; }
+
+  .disclaimer { font-size: 10px; color: var(--ink-light); text-align: center; padding: 6px 16px 0; line-height: 1.5; }
+
+  .summary-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--ink); color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; z-index: 100; }
+  .summary-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .summary-value { font-size: 15px; font-weight: 700; color: var(--gold); }
+  .summary-key { font-size: 9px; color: rgba(255,255,255,0.5); letter-spacing: 0.02em; }
+  .pb-safe { height: 58px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div>
+      <div class="header-title">深圳一日游</div>
+      <div class="header-date">HCI-RecSys group</div>
+      <div class="header-sub" id="headerDate">2026年6月13日（六）· 全天通票 ¥94</div>
+    </div>
+    <div class="depart-control">
+      <div class="depart-label" id="departLabel">港方出发</div>
+      <input type="time" class="time-picker" id="departTime" value="10:00" oninput="recalculate()">
+    </div>
+  </div>
+  <div class="date-row" id="dateRow"></div>
+  <div class="arrival-toggle">
+    <div class="arrival-btn" id="arrDongtie" onclick="setArrival('dongtie')">
+      <div class="arrival-btn-title">东铁 · 口岸</div>
+      <div class="arrival-btn-sub">九龙塘 → 福田口岸</div>
+    </div>
+    <div class="arrival-btn" id="arrGaotie" onclick="setArrival('gaotie')">
+      <div class="arrival-btn-title">高铁 · 光明城</div>
+      <div class="arrival-btn-sub">西九龙 → 光明城</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="timeline" id="timeline"></div>
+  <div class="disclaimer">高铁班次为 2026-06-13 实际车次（来自 12306 / 美团截图）。余票与检票口实时变动，请点班次右侧「核实」前往 12306 查询当前余票与检票口。</div>
+  <div class="pb-safe"></div>
+</main>
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value" id="sumLunch">—</div><div class="summary-key">午饭</div></div>
+  <div class="summary-item"><div class="summary-value" id="sumMuseum">—</div><div class="summary-key">入场</div></div>
+  <div class="summary-item"><div class="summary-value" id="sumViewEnd">—</div><div class="summary-key">看展结束</div></div>
+  <div class="summary-item"><div class="summary-value" id="sumDinner">—</div><div class="summary-key">晚饭</div></div>
+  <div class="summary-item"><div class="summary-value" id="sumReturn">—</div><div class="summary-key" id="sumReturnKey">回程</div></div>
+</div>
+
+<script>
+// ===== 可选日期 =====
+const DATES = [
+  { id:'06-11', label:'今天', date:'06-11', cn:'2026年6月11日（四）' },
+  { id:'06-12', label:'明天', date:'06-12', cn:'2026年6月12日（五）' },
+  { id:'06-13', label:'后天', date:'06-13', cn:'2026年6月13日（六）' },
+  { id:'06-14', label:'周日', date:'06-14', cn:'2026年6月14日（日）' },
+  { id:'06-15', label:'周一', date:'06-15', cn:'2026年6月15日（一）· 美术馆闭馆' },
+  { id:'06-16', label:'周二', date:'06-16', cn:'2026年6月16日（二）' }
+];
+
+// ===== 真实高铁班次（2026-06-13，来自截图）=====
+// 来程：香港西九龙 → 光明城
+const TRAINS_ARRIVE = [
+  { dep:'08:07', arr:'08:42', no:'G6080' },
+  { dep:'09:28', arr:'10:02', no:'G6554' },
+  { dep:'10:02', arr:'10:36', no:'G918' }
+];
+// 回程：光明城 → 香港西九龙
+const TRAINS_GMC = [
+  { dep:'12:59', arr:'13:31', no:'G6583' },
+  { dep:'19:02', arr:'19:40', no:'G6569' },
+  { dep:'20:06', arr:'20:44', no:'G6561' },
+  { dep:'21:08', arr:'21:42', no:'G6509' }
+];
+// 回程：深圳北 → 香港西九龙
+const TRAINS_BEISHAN = [
+  { dep:'19:27', arr:'19:47', no:'G923' },
+  { dep:'19:41', arr:'19:59', no:'G6047' },
+  { dep:'19:55', arr:'20:19', no:'G5653' },
+  { dep:'20:08', arr:'20:26', no:'G5679' },
+  { dep:'20:14', arr:'20:34', no:'G387' },
+  { dep:'20:20', arr:'20:39', no:'G6531' },
+  { dep:'20:25', arr:'20:44', no:'G6561' },
+  { dep:'20:57', arr:'21:21', no:'G913' },
+  { dep:'21:19', arr:'21:47', no:'G5655' },
+  { dep:'21:24', arr:'21:42', no:'G6509' },
+  { dep:'21:33', arr:'21:51', no:'G6079' },
+  { dep:'21:38', arr:'21:56', no:'G901' },
+  { dep:'21:43', arr:'22:01', no:'G903' }
+];
+
+const LUNCH_DONGTIE = [
+  { id: 'xinqidian', name: '新起点脆肉鲩火锅', sub: '福田首店 · 火锅', transit_metro: '地铁34分钟（4号线5站）', transit_taxi: '打车20分钟', transit_min: 20, museum_taxi: 40 },
+  { id: 'fanlou', name: '繁楼', sub: '华强北店 · 粤菜', transit_metro: '地铁30分钟（4号线-2号线5站）', transit_taxi: '打车20分钟', transit_min: 20, museum_taxi: 50 },
+  { id: 'banu', name: '巴奴毛肚火锅', sub: '卓越中心店 · 火锅', transit_metro: '地铁20分钟（10号线2站）', transit_taxi: '打车12分钟', transit_min: 12, museum_taxi: 50 },
+  { id: 'wenji', name: '文记虾一跳', sub: '深圳北站店 · 虾料理', transit_metro: '地铁30分钟（4号线8站）', transit_taxi: '打车24分钟', transit_min: 24, museum_taxi: 40 }
+];
+const LUNCH_GAOTIE = [
+  { id: 'runyuan', name: '润园四季椰子鸡火锅', sub: '光明店 · 椰子鸡', taxi_from_tea: 10, museum_taxi: 15 },
+  { id: 'fengxz', name: '冯校长老火锅', sub: '光明店 · 火锅', taxi_from_tea: 10, museum_taxi: 15 }
+];
+const GUANGMING_DINNER = [
+  { id: 'zhds', name: '光明招待所', sub: '乳鸽 · 光明特色' },
+  { id: 'liubing', name: '刘冰乳鸽店', sub: '乳鸽 · 老字号' },
+  { id: 'nanyue', name: '老字号南粤光明乳鸽', sub: '乳鸽 · 光明总店' },
+  { id: 'minghu', name: '明湖楼·顺德菜', sub: '顺德菜 · 光明店' }
+];
+const NANTOU_DINNER = [
+  { id: 'banxian', name: '半仙贵州小馆', sub: '贵州菜' },
+  { id: 'yunnan', name: '云喃乡野厨房', sub: '云南菜' },
+  { id: 'ldc', name: 'LDC 梁杜陈潮汕食堂', sub: '潮汕菜 · 罗氏虾、炒吊龙' },
+  { id: 'sipup', name: 'SipUp 西皮葡萄酒餐酒馆', sub: '酒馆 · 西餐' }
+];
+const NANTOU_SNACKS = ['彬妈糖水', '超级香蕉烧', '兔子夫妇栗酥饼'];
+const NANTOU_SHOPS = ['9GAAI 杂货铺', 'nitty gritty 小细节商店', '宫冶和集', 'Roseanna vintage', '小行星森林女巫店', '九街杂货铺（银饰·文创·手帐）', 'PROEM（香薰）', '跳海酒馆'];
+
+const BORDER_OPTIONS = [ { id: 'futian', name: '福田口岸' }, { id: 'luohu', name: '罗湖口岸' } ];
+const RETURN_MIN = { guangming: { futian: 60, luohu: 60 }, nantou: { futian: 30, luohu: 40 } };
+
+const STATION_BUFFER = 40;        // 到站+安检+候车
+const MUSEUM_TO_BEISHAN = 40;     // 美术馆→文记虾一跳(深圳北站店)
+const GM_TO_GMC = 15;             // 光明乳鸽→光明城站
+
+let state = {
+  dateId: '06-13',
+  arrival: 'dongtie',
+  hkDepart: '10:00',
+  arriveTrainIdx: 1,        // 默认 09:28→10:02 G6554（可现场改）
+  lunchDT: 'banu',
+  lunchGT: 'runyuan',
+  viewMinutes: 240,
+  eveningPlan: 'auto',
+  guangmingReturn: 'port',
+  dinnerGuangming: 'zhds',
+  dinnerNantou: 'banxian',
+  trainIdx: null,
+  border: 'futian'
+};
+
+function parseTime(s){const[h,m]=s.split(':').map(Number);return h*60+m;}
+function formatTime(x){const h=Math.floor(x/60)%24;const m=((x%60)+60)%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
+// 12306 余票/检票口查询链接（深色为出发站，传日期）
+function verifyUrl(fromName, toName, dateId){
+  const d = '2026-' + dateId;
+  return `https://kyfw.12306.cn/otn/leftTicket/init?linktypeid=dc&fs=${encodeURIComponent(fromName)}&ts=${encodeURIComponent(toName)}&date=${d}`;
+}
+
+function recalculate(){const v=document.getElementById('departTime').value;if(state.arrival==='dongtie')state.hkDepart=v;render();}
+function setDate(id){state.dateId=id;render();}
+function setArrival(a){state.arrival=a;render();}
+function selectArriveTrain(i){state.arriveTrainIdx=i;render();}
+function selectLunchDT(id){state.lunchDT=id;render();}
+function selectLunchGT(id){state.lunchGT=id;render();}
+function setViewMinutes(v){state.viewMinutes=parseInt(v);render();}
+function selectPlan(p){state.eveningPlan=p;state.trainIdx=null;render();}
+function selectGMReturn(m){state.guangmingReturn=m;state.trainIdx=null;render();}
+function selectDinnerGM(id){state.dinnerGuangming=id;render();}
+function selectDinnerNT(id){state.dinnerNantou=id;render();}
+function selectTrain(i){state.trainIdx=i;render();}
+function selectBorder(id){state.border=id;render();}
+
+const MUSEUM_CLOSE=18*60, NANTOU_CUTOFF=17*60, NANTOU_TAXI=50;
+
+function render(){
+  // dates
+  document.getElementById('dateRow').innerHTML = DATES.map(d=>`
+    <div class="date-btn ${d.id===state.dateId?'active':''}" onclick="setDate('${d.id}')">
+      <div class="date-btn-day">${d.label}</div><div class="date-btn-date">${d.date}</div>
+    </div>`).join('');
+  const dObj = DATES.find(d=>d.id===state.dateId);
+  document.getElementById('headerDate').textContent = `${dObj.cn} · 全天通票 ¥94`;
+
+  document.getElementById('arrDongtie').classList.toggle('active', state.arrival==='dongtie');
+  document.getElementById('arrGaotie').classList.toggle('active', state.arrival==='gaotie');
+  // 来程为高铁时，出发时间由所选车次决定，隐藏可编辑时间
+  document.getElementById('departLabel').textContent = state.arrival==='dongtie'?'港方出发':'高铁出发';
+  const dt = document.getElementById('departTime');
+  if(state.arrival==='dongtie'){ dt.type='time'; dt.disabled=false; dt.value=state.hkDepart; }
+  else { dt.type='text'; dt.disabled=true; dt.value=TRAINS_ARRIVE[state.arriveTrainIdx].dep+' 西九龙'; }
+
+  // ===== 来程 + 午饭 =====
+  let morningHtml, lunchStart, lunchEnd, museumArrive;
+  if(state.arrival==='dongtie'){
+    const hkDepart=parseTime(state.hkDepart), cross=hkDepart+70;
+    const o=LUNCH_DONGTIE.find(x=>x.id===state.lunchDT);
+    lunchStart=cross+o.transit_min; lunchEnd=lunchStart+110; museumArrive=lunchEnd+o.museum_taxi;
+    morningHtml=`
+      ${tlItem(formatTime(hkDepart),'港方集合','九龙塘地铁站','东铁线集合，出发前往福田口岸')}
+      ${tlItem(formatTime(cross),'深圳入境','福田口岸','过关后出发前往午饭地点')}
+      ${tlItemOpen(formatTime(lunchStart),'午饭','选择餐厅','highlighted')}
+        <div class="choice-group"><div class="choice-label">福田口岸出发 · 选择餐厅</div><div class="choice-options">
+          ${LUNCH_DONGTIE.map(x=>`<button class="choice-btn ${x.id===state.lunchDT?'selected':''}" onclick="selectLunchDT('${x.id}')"><div class="radio"></div><div style="flex:1"><div class="choice-main">${x.name}</div><div class="choice-meta">${x.sub}</div><div class="choice-meta">${x.transit_metro} · ${x.transit_taxi}</div></div><div class="choice-transit">→美术馆<br>打车${x.museum_taxi}分</div></button>`).join('')}
+        </div></div>
+      ${tlItemClose('约110分钟',formatTime(lunchEnd),'可点奶茶提神（去茶山推荐）')}`;
+  } else {
+    const at = TRAINS_ARRIVE[state.arriveTrainIdx];
+    const railArrive = parseTime(at.arr);
+    const teaStart = railArrive + 5;
+    const teaEnd = Math.max(teaStart + 20, parseTime('11:30'));
+    const o=LUNCH_GAOTIE.find(x=>x.id===state.lunchGT);
+    lunchStart=teaEnd+o.taxi_from_tea; lunchEnd=lunchStart+100; museumArrive=lunchEnd+o.museum_taxi;
+    const url = verifyUrl('香港西九龙','光明城',state.dateId);
+    morningHtml=`
+      <div class="tl-item"><div class="tl-time">${at.dep}</div><div class="tl-spine"><div class="tl-dot" style="background:var(--rail)"></div><div class="tl-line"></div></div>
+        <div class="tl-card" style="border-color:#D2B4D2;background:#FAF4FA">
+          <div class="tl-card-label">来程高铁 · 香港西九龙 → 光明城</div>
+          <div class="train-list">
+            ${TRAINS_ARRIVE.map((t,i)=>`<button class="train-btn ${i===state.arriveTrainIdx?'selected':''}" onclick="selectArriveTrain(${i})">
+              <div class="train-time">${t.dep}</div>
+              <div class="train-mid"><div class="train-no">${t.no} · 西九龙→光明城</div><div class="train-arrive">到 ${t.arr}</div></div>
+              <div class="train-right"><a class="train-verify" href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">核实</a></div>
+            </button>`).join('')}
+          </div>
+        </div>
+      </div>
+      ${tlItemSimple(formatTime(teaStart),'喝茶','后山茶社','光明城站打车/步行约5分钟到，喝茶聊天约 '+formatTime(teaEnd)+' 出发','约'+(teaEnd-teaStart)+'分钟')}
+      ${tlItemOpen(formatTime(lunchStart),'午饭','选择餐厅','highlighted')}
+        <div class="choice-group"><div class="choice-label">后山茶社出发 · 选择餐厅（打车约10分钟）</div><div class="choice-options">
+          ${LUNCH_GAOTIE.map(x=>`<button class="choice-btn ${x.id===state.lunchGT?'selected':''}" onclick="selectLunchGT('${x.id}')"><div class="radio"></div><div style="flex:1"><div class="choice-main">${x.name}</div><div class="choice-meta">${x.sub}</div></div><div class="choice-transit">→美术馆<br>打车15分</div></button>`).join('')}
+        </div></div>
+      ${tlItemClose('约100分钟',formatTime(lunchEnd),'饭后点奶茶，打车15分钟前往美术馆')}`;
+  }
+
+  // ===== 美术馆 =====
+  let viewEnd=museumArrive+state.viewMinutes;
+  const capped=viewEnd>MUSEUM_CLOSE; if(capped)viewEnd=MUSEUM_CLOSE;
+  const closedMon = state.dateId==='06-15';
+
+  // ===== 回程方案 =====
+  let plan=state.eveningPlan;
+  if(plan==='auto')plan=viewEnd<NANTOU_CUTOFF?'nantou':'guangming';
+  const canNantou=viewEnd<NANTOU_CUTOFF;
+
+  let dinnerStart,dinnerEnd,exploreStart=null,exploreEnd=null,returnDepart,returnArrive;
+  let isRail=false, trainsUsed=null, routeFrom='', routeTo='香港西九龙', recIdx=null, selIdx=null, stationName='', taxiToStation=0;
+
+  if(plan==='nantou'){
+    dinnerStart=viewEnd+NANTOU_TAXI; dinnerEnd=dinnerStart+90;
+    exploreStart=dinnerEnd; exploreEnd=exploreStart+90;
+    returnDepart=exploreEnd; returnArrive=returnDepart+RETURN_MIN.nantou[state.border];
+  } else if(plan==='gaotie'){
+    dinnerStart=viewEnd+MUSEUM_TO_BEISHAN; dinnerEnd=dinnerStart+100;
+    isRail=true; trainsUsed=TRAINS_BEISHAN; routeFrom='深圳北'; stationName='深圳北站'; taxiToStation=0;
+    const ready=dinnerEnd+STATION_BUFFER;
+    recIdx=trainsUsed.findIndex(t=>parseTime(t.dep)>=ready); if(recIdx===-1)recIdx=trainsUsed.length-1;
+    selIdx=state.trainIdx!==null?state.trainIdx:recIdx;
+    returnDepart=parseTime(trainsUsed[selIdx].dep); returnArrive=parseTime(trainsUsed[selIdx].arr);
+  } else { // guangming
+    dinnerStart=viewEnd+7; dinnerEnd=dinnerStart+90;
+    if(state.guangmingReturn==='rail'){
+      isRail=true; trainsUsed=TRAINS_GMC; routeFrom='光明城'; stationName='光明城站'; taxiToStation=GM_TO_GMC;
+      const ready=dinnerEnd+GM_TO_GMC+STATION_BUFFER;
+      recIdx=trainsUsed.findIndex(t=>parseTime(t.dep)>=ready); if(recIdx===-1)recIdx=trainsUsed.length-1;
+      selIdx=state.trainIdx!==null?state.trainIdx:recIdx;
+      returnDepart=parseTime(trainsUsed[selIdx].dep); returnArrive=parseTime(trainsUsed[selIdx].arr);
+    } else {
+      returnDepart=dinnerEnd; returnArrive=returnDepart+RETURN_MIN.guangming[state.border];
+    }
+  }
+
+  document.getElementById('sumLunch').textContent=formatTime(lunchStart);
+  document.getElementById('sumMuseum').textContent=formatTime(museumArrive);
+  document.getElementById('sumViewEnd').textContent=formatTime(viewEnd);
+  document.getElementById('sumDinner').textContent=formatTime(dinnerStart);
+  document.getElementById('sumReturn').textContent=formatTime(returnArrive);
+  document.getElementById('sumReturnKey').textContent=isRail?'到西九龙':'过关';
+
+  const hrs=Math.floor(state.viewMinutes/60),mins=state.viewMinutes%60;
+  const viewLabel=`${hrs}小时${mins?mins+'分':''}`;
+
+  document.getElementById('timeline').innerHTML=`
+    ${morningHtml}
+    ${museumBlock(formatTime(museumArrive),formatTime(viewEnd),viewLabel,capped,closedMon)}
+    ${eveningBlock(plan,canNantou,formatTime(dinnerStart),formatTime(dinnerEnd),exploreStart,exploreEnd,isRail,trainsUsed,routeFrom,routeTo,recIdx,selIdx,taxiToStation)}
+    ${returnTail(plan,isRail,formatTime(returnDepart),formatTime(returnArrive),stationName)}
+  `;
+}
+
+function museumBlock(arriveT,endT,viewLabel,capped,closedMon){
+  const capNote=capped?`<div class="view-end-note" style="color:#E8B4A0">已到闭馆时间，看展结束封顶 18:00</div>`:`<div class="view-end-note" style="color:rgba(255,255,255,0.5)">看展结束约 <b style="color:var(--gold)">${endT}</b>（晚饭时间随之更新）</div>`;
+  const monWarn = closedMon?`<div class="view-end-note" style="color:#E8B4A0">⚠ 所选日期为周一，美术馆闭馆，请改其他日期</div>`:'';
+  return `
+    <div class="tl-item"><div class="tl-time">${arriveT}</div><div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+      <div class="museum-card">
+        <div class="museum-en">SIMoA · 光明大道16号</div>
+        <div class="museum-name">深圳国际美术馆</div>
+        <div class="ticket-note">🎟 全天通票（咸鱼 ¥94）· 含以下全部展览</div>
+        <div class="museum-exhibits">
+          ${exhibitRow('新链：艺术的未来','特展','至 2027.4.30')}${exhibitRow('徐冰：字在乐园','特展','至 2027.4.30')}${exhibitRow('国宝归来','特展','至 2026.7.20')}${exhibitRow('闪烁的1/∞','普展','至 2027.4.30')}${exhibitRow('缣素绵延','普展','至 2026.7.29')}${exhibitRow('东方根脉与当代转化','普展','至 2026.11.20')}${exhibitRow('大师之境','普展','至 2026.8.31')}
+        </div>
+        <div class="view-control">
+          <div class="view-control-head"><span class="view-control-label">看展时长（拖动调整）</span><span class="view-control-value">${viewLabel}</span></div>
+          <input type="range" min="60" max="420" step="30" value="${state.viewMinutes}" oninput="setViewMinutes(this.value)">
+          ${capNote}${monWarn}
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.35);">开放 10:00–18:00 · 17:00停止入场 · 周一闭馆</div>
+      </div>
+    </div>`;
+}
+function exhibitRow(n,t,d){return `<div class="exhibit-row"><div class="exhibit-name">${n}</div><div class="exhibit-type">${t}</div><div class="exhibit-dates">${d}</div></div>`;}
+
+function trainPicker(trains,routeFrom,routeTo,recIdx,selIdx,transferNote){
+  const url=verifyUrl(routeFrom,routeTo,state.dateId);
+  return `
+    <div class="choice-label" style="margin-top:10px">选择返程高铁（${routeFrom} → ${routeTo}）</div>
+    <div class="train-list">
+      ${trains.map((t,i)=>{const tooEarly=i<recIdx;const isSel=i===selIdx;return `<button class="train-btn ${isSel?'selected':''} ${tooEarly?'disabled':''}" onclick="selectTrain(${i})">
+        <div class="train-time">${t.dep}</div>
+        <div class="train-mid"><div class="train-no">${t.no}</div><div class="train-arrive">到西九龙 ${t.arr}</div></div>
+        <div class="train-right">${i===recIdx?'<div class="train-badge">推荐</div>':''}<a class="train-verify" href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">核实</a></div>
+      </button>`;}).join('')}
+    </div>
+    <div class="auto-hint" style="margin-top:8px">${transferNote}推荐为「饭后约 ${STATION_BUFFER} 分钟可上车」的最早一班；灰色班次时间偏紧。点「核实」查 12306 实时余票与检票口。</div>`;
+}
+
+function eveningBlock(plan,canNantou,dStartT,dEndT,exploreStart,exploreEnd,isRail,trainsUsed,routeFrom,routeTo,recIdx,selIdx,taxiToStation){
+  const auto=state.eveningPlan==='auto';
+  let hint;
+  if(plan==='guangming')hint=`就近 <b>光明乳鸽</b>，打车约7分钟到餐厅`;
+  else if(plan==='nantou')hint=canNantou?`看展早于 <b>17:00</b> 结束，可去 <b>南头古城</b>（打车约50分钟）吃饭逛街`:`提示：看展较晚，去南头古城会偏赶`;
+  else hint=`<b>高铁返程</b>：美术馆打车40分钟到深圳北站，吃饭后按时间选班次`;
+
+  let body='';
+  if(plan==='guangming'){
+    body=`
+      <div class="choice-group"><div class="choice-label">乳鸽餐厅（距美术馆约7分钟车程）</div><div class="choice-options">
+        ${GUANGMING_DINNER.map(o=>`<button class="choice-btn ${o.id===state.dinnerGuangming?'selected':''}" onclick="selectDinnerGM('${o.id}')"><div class="radio"></div><div><div class="choice-main">${o.name}</div><div class="choice-meta">${o.sub}</div></div></button>`).join('')}
+      </div></div>
+      <div class="choice-label" style="margin-top:12px">回程方式</div>
+      <div class="ret-seg">
+        <div class="ret-seg-btn ${state.guangmingReturn==='port'?'active':''}" onclick="selectGMReturn('port')"><div class="ret-seg-title">口岸通关</div><div class="ret-seg-sub">打车1h 福田/罗湖</div></div>
+        <div class="ret-seg-btn ${state.guangmingReturn==='rail'?'active':''}" onclick="selectGMReturn('rail')"><div class="ret-seg-title">高铁返程</div><div class="ret-seg-sub">光明城站·较晚</div></div>
+      </div>`;
+    if(state.guangmingReturn==='rail'){
+      body+=trainPicker(trainsUsed,routeFrom,routeTo,recIdx,selIdx,`饭后打车约 ${taxiToStation} 分钟到光明城站。`);
+    } else {
+      body+=`<div class="choice-group"><div class="choice-label" style="margin-top:10px">选择口岸（打车约1小时）</div><div class="choice-options">
+        ${BORDER_OPTIONS.map(o=>`<button class="choice-btn ${o.id===state.border?'selected':''}" onclick="selectBorder('${o.id}')"><div class="radio"></div><div><div class="choice-main">${o.name}</div><div class="choice-meta">光明出发 · 打车约60分钟</div></div></button>`).join('')}
+      </div></div>`;
+    }
+  } else if(plan==='nantou'){
+    body=`
+      <div class="choice-group"><div class="choice-label">南头古城餐厅（美术馆打车约50分钟）</div><div class="choice-options">
+        ${NANTOU_DINNER.map(o=>`<button class="choice-btn ${o.id===state.dinnerNantou?'selected':''}" onclick="selectDinnerNT('${o.id}')"><div class="radio"></div><div><div class="choice-main">${o.name}</div><div class="choice-meta">${o.sub}</div></div></button>`).join('')}
+      </div></div>
+      <div class="extras">
+        <div class="extras-section"><div class="extras-title">小吃</div><div class="tag-row">${NANTOU_SNACKS.map(s=>`<span class="tag snack">${s}</span>`).join('')}</div></div>
+        <div class="extras-section"><div class="extras-title">小店 · 游览古城</div><div class="tag-row">${NANTOU_SHOPS.map(s=>`<span class="tag shop">${s}</span>`).join('')}</div></div>
+      </div>`;
+  } else {
+    body=`
+      <div class="choice-group"><div class="choice-label">晚饭：文记虾一跳（深圳北站店）· 吃饭约100分钟</div></div>
+      ${trainPicker(trainsUsed,routeFrom,routeTo,recIdx,selIdx,`餐厅紧邻深圳北站。`)}`;
+  }
+
+  const exploreCard=(plan==='nantou'&&exploreStart!==null)?`
+    <div class="tl-item"><div class="tl-time">${formatTime(exploreStart)}</div><div class="tl-spine"><div class="tl-dot" style="background:var(--blue)"></div><div class="tl-line"></div></div>
+      <div class="tl-card"><div class="tl-card-label">饭后游览</div><div class="tl-card-title">南头古城</div><div class="tl-card-sub">逛小店、买文创、酒馆小酌</div><div class="tl-card-duration"><span class="duration-pill">约90分钟</span> 至 ${formatTime(exploreEnd)}</div></div>
+    </div>`:'';
+
+  const cardStyle=plan==='nantou'?'border-color:#A8C2DB;background:#F4F8FB':(plan==='gaotie'||(plan==='guangming'&&state.guangmingReturn==='rail'))?'border-color:#D2B4D2;background:#FAF4FA':'';
+
+  return `
+    <div class="tl-item"><div class="tl-time">${dStartT}</div><div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+      <div class="tl-card ${(plan==='guangming'&&state.guangmingReturn==='port')?'highlighted':''}" style="${cardStyle}">
+        <div class="tl-card-label">晚饭 · 回程方式</div>
+        <div class="plan-toggle">
+          <div class="plan-toggle-btn ${(state.eveningPlan==='guangming'||(auto&&plan==='guangming'))?'active':''}" onclick="selectPlan('guangming')"><div class="plan-toggle-title">光明乳鸽</div><div class="plan-toggle-sub">口岸/高铁</div></div>
+          <div class="plan-toggle-btn ${(state.eveningPlan==='nantou'||(auto&&plan==='nantou'))?'active':''}" onclick="selectPlan('nantou')"><div class="plan-toggle-title">南头古城</div><div class="plan-toggle-sub">口岸通关</div></div>
+          <div class="plan-toggle-btn ${state.eveningPlan==='gaotie'?'active':''}" onclick="selectPlan('gaotie')"><div class="plan-toggle-title">高铁返程</div><div class="plan-toggle-sub">深圳北上车</div></div>
+        </div>
+        <div class="auto-hint">${auto?'🔄 已按看展结束时间自动推荐：':'已手动选择。'}${hint}</div>
+        ${body}
+        <div class="tl-card-duration"><span class="duration-pill">${plan==='gaotie'?'约100分钟':'约90分钟'}</span> 结束约 ${dEndT}</div>
+      </div>
+    </div>
+    ${exploreCard}`;
+}
+
+function returnTail(plan,isRail,departT,arriveT,stationName){
+  if(isRail){
+    return `
+      <div class="tl-item"><div class="tl-time">${departT}</div><div class="tl-spine"><div class="tl-dot" style="background:var(--rail)"></div></div>
+        <div class="crossing-card rail"><div class="crossing-title">🚄 ${departT} ${stationName}发车 · ${arriveT} 抵达西九龙</div><div class="crossing-sub">行程结束，安全回港</div></div>
+      </div>`;
+  }
+  if(plan==='guangming'){
+    return `
+      <div class="tl-item"><div class="tl-time">${arriveT}</div><div class="tl-spine"><div class="tl-dot" style="background:#2E7D52"></div></div>
+        <div class="crossing-card"><div class="crossing-title">✓ 抵达 ${BORDER_OPTIONS.find(o=>o.id===state.border).name}</div><div class="crossing-sub">光明出发打车约1小时 · 行程结束</div></div>
+      </div>`;
+  }
+  return `
+    <div class="tl-item"><div class="tl-time">${departT}</div><div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+      <div class="tl-card"><div class="tl-card-label">返回过关</div><div class="tl-card-title">选择口岸</div>
+        <div class="choice-group"><div class="choice-options">
+          ${BORDER_OPTIONS.map(o=>`<button class="choice-btn ${o.id===state.border?'selected':''}" onclick="selectBorder('${o.id}')"><div class="radio"></div><div><div class="choice-main">${o.name}</div><div class="choice-meta">南头古城出发 · 打车约${RETURN_MIN.nantou[o.id]}分钟</div></div></button>`).join('')}
+        </div></div>
+      </div>
+    </div>
+    <div class="tl-item"><div class="tl-time">${arriveT}</div><div class="tl-spine"><div class="tl-dot" style="background:#2E7D52"></div></div>
+      <div class="crossing-card"><div class="crossing-title">✓ 抵达 ${BORDER_OPTIONS.find(o=>o.id===state.border).name}</div><div class="crossing-sub">行程结束，安全回港</div></div>
+    </div>`;
+}
+
+function tlItem(time,label,title,sub){return `<div class="tl-item"><div class="tl-time">${time}</div><div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-card"><div class="tl-card-label">${label}</div><div class="tl-card-title">${title}</div><div class="tl-card-sub">${sub}</div></div></div>`;}
+function tlItemSimple(time,label,title,sub,dur){return `<div class="tl-item"><div class="tl-time">${time}</div><div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-card"><div class="tl-card-label">${label}</div><div class="tl-card-title">${title}</div><div class="tl-card-sub">${sub}</div><div class="tl-card-duration"><span class="duration-pill">${dur}</span></div></div></div>`;}
+function tlItemOpen(time,label,title,cls){return `<div class="tl-item"><div class="tl-time">${time}</div><div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-card ${cls}"><div class="tl-card-label">${label}</div><div class="tl-card-title">${title}</div>`;}
+function tlItemClose(duration,endTime,note){const n=note?`<div class="tl-card-sub" style="margin-top:6px">🧋 ${note}</div>`:'';return `<div class="tl-card-duration"><span class="duration-pill">${duration}</span> 结束约 ${endTime}</div>${n}</div></div>`;}
+
+render();
+</script>
+</body>
+</html>
